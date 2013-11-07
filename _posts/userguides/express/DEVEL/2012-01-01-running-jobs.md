@@ -9,11 +9,16 @@ description: Running KijiExpress Jobs.
 ---
 ##DRAFT##
 
-There are two ways to run KijiExpress logic: compiled into Jobs or in the KijiExpress language shell (REPL).
+There are two ways to run KijiExpress logic: compiled into Jobs or in the
+KijiExpress language shell (REPL).
 
 ### Running Compiled Jobs
 
-KijiExpress programs are written in Scala with KijiExpress libraries included as dependencies. The Kiji project includes configuration for Maven that eases building these Scala files into runnable Java JARs. You can choose to compile KijiExpress Scala files with whatever system you are comfortable with; see Build Tools for setting up the Kiji project dependencies.
+KijiExpress programs are written in Scala with KijiExpress libraries included
+as dependencies. The Kiji project includes configuration for Maven that eases
+building these Scala files into runnable Java JARs. You can choose to compile
+KijiExpress Scala files with whatever system you are comfortable with; see
+KijiExpress Setup for setting up the Kiji project dependencies.
 
 To produce KijiExpress code that can be compiled:
 
@@ -25,7 +30,10 @@ To produce KijiExpress code that can be compiled:
 
     Where Args is an object that allows you to easily pass in command-line arguments.
 
-    Typically arguments will be expressed on the command-line with   option-name option-value and can be accessed within the job as args("option-name"). Usually this is done with an input such as a reference to a Kiji table: KijiInput(args("table-name")).
+    Typically arguments will be expressed on the command-line with
+option-name option-value and can be accessed within the job as
+args("option-name"). Usually this is done with an input such as a reference to
+a Kiji table: KijiInput(args("table-name")).
 
 * Import the dependencies required by the logic.
 
@@ -35,7 +43,8 @@ To produce KijiExpress code that can be compiled:
         import org.kiji.express._
         import org.kiji.express.flow._
 
-    In Scala, the underscore is a wildcard character that indicates all files in the given location.
+    In Scala imports, the underscore is a wildcard character that indicates all
+classes in the given package.
 
 The command to run a compiled KijiExpress job is as follows:
 
@@ -72,47 +81,35 @@ line would include:
 
 ### Running Logic in the KijiExpress Shell
 
-KijiExpress includes a REPL or command line shell where you can run one or more Scala
-statements and KijiExpress will evaluate the results.
+KijiExpress includes a REPL where you can run one or more Scala statements and
+KijiExpress will evaluate the results.
 
-Anything you can do in an KijiExpress flow you can do in the REPL. The REPL is particularly
-useful for development and prototyping. For example, you might write and test a flow for a
-training procedure in the REPL, and then later use that prototype to author an actual train
-implementation by wrapping everything up in a new class that implements the training procedure.
+Anything you can do in an KijiExpress flow you can do in the REPL. The REPL is particularly useful
+for development and prototyping. For example, you might write and test a flow for a training
+procedure in the REPL, and then later use that prototype to author an actual train implementation by
+wrapping everything up in a new class that implements the training procedure.
 
-Commands specific to the shell which should not be evaluated by the Scala interpreter are
-prefixed with a colon (:). Here’s a sample interactive session. It assumes that you have a
-Kiji instance configured as described in Setup:
+Commands specific to the shell which should not be evaluated by the Scala interpreter are prefixed
+with a colon (:). Here’s a sample interactive session.  It assumes that you have the express script
+on your classpath:
 
-    $ cd <path/to/project>
     $ express shell
-    express> :paste
-    // Entering paste mode (ctrl-D to finish)
-    import scala.util.parsing.json.JSON
-    import com.twitter.scalding.
-    import org.kiji.express.
-    import org.kiji.express.flow.
-    def parseJson(json: String): (String, String, String, String, String, Long, Long) = {
-        val metadata = JSON.parseFull(json).get.asInstanceOf[Map[String, Any]]
-        (metadata.get("song_id").get.asInstanceOf[String],
-            metadata.get("song_name").get.asInstanceOf[String],
-            metadata.get("album_name").get.asInstanceOf[String],
-            metadata.get("artist_name").get.asInstanceOf[String],
-            metadata.get("genre").get.asInstanceOf[String],
-            metadata.get("tempo").get.asInstanceOf[String].toLong,
-            metadata.get("duration").get.asInstanceOf[String].toLong)
-      }
 
-      TextLine("express-tutorial/song-metadata.json")
-          .map('line ->
-              ('songId, 'songName, 'albumName, 'artistName, 'genre, 'tempo,'duration)) { parseJson }
-          .map('songId -> 'entityId) { songId: String => EntityId(songId) }
-          .packAvro(('songName, 'albumName, 'artistName, 'genre, 'tempo, 'duration)
-              -> 'metadata)
-          .write(KijiOutput(args("table-uri"))('metadata -> "info:metadata"))
-
-    // Existing paste mode, now interpreting.
-    //<typical output here>
+    express> def inputPipe = KijiInput(
+        "kiji://localhost:2181/myInstance/myTable",
+        Map("info:username" -> 'username))
+    inputPipe: org.kiji.express.flow.KijiSource
+    express> def pipeNormalized =
+        inputPipe.mapTo('username -> 'normalizedUsername) { username: String =>
+          username.toLowerCase }
+    pipeNormalized: cascading.pipe.Pipe
+    express> def outputPipe = pipeNormalized.write(
+        KijiOutput(
+            "kiji://localhost:2181/myInstance/myTable",
+            Map('normalizedUsername -> "info:normalizedUsername")))
+    outputPipe: cascading.pipe.Pipe
+    express> outputPipe.run()
+            // In the REPL, the flow is not run until you call the ".run" method.
 
 Alternatively you can simply point to the Scala file:
 
@@ -121,7 +118,14 @@ Alternatively you can simply point to the Scala file:
     express> :load SongMetadataImporter.scala
 
 
-* `: help` lists the shell commands.
+* `:help` lists the shell commands.
+
+* `:paste` enters paste mode, where you can input multiple lines of code and it
+  is all compiled together on exiting paste mode (paste mode is exited with
+ctrl-D)
+
+* `:load` loads a specified file.  The file should be a script, with scala statements that could be
+  used in the REPL directly.
 
 * Don’t use forward slash (/) to indicate line breaks; instead use Scala conventions for
 where you can put breaks. (Long lines work also.)
@@ -131,6 +135,6 @@ where you can put breaks. (Long lines work also.)
 
 * More than one blank line in a row in the Scala input (from `:paste` or `:load`) will fail.
 
-* You can also run KijiSchema commands from the KijiExpress shell by using the `:schema-shell` command.
+* `:schema-shell` runs a KijiSchema DDL shell from within the KijiExpress shell.
 
 See [KijiExpress Shell Command Reference](../shell-commands).
