@@ -161,21 +161,21 @@ be extracted and streamed into the data pipeline. Generally, you won't explicitl
 the read operation, as it is included as part of the next operation such as a map or
 project operation.
 
-    For data in a Kiji table, Express includes the source KijiInput that understands the
-    special characteristics of a Kiji table, such as entity IDs.
+For data in a Kiji table, Express includes the source `KijiInput` that understands the special
+characteristics of a Kiji table, such as entity IDs. `KijiInput` is an Express extension of a
+Scalding source:
 
-        KijiInput("kiji/table/uri/users")
-            .read
+    KijiInput("kiji://localhost:2181/myInstance/users")
 
-    `KijiInput` is an Express extension of a Scalding source.
+Note this will construct a KijiSource that reads no data, because you must also specify which
+columns to read.  The full KijiInput and KijiOutput syntax can be found in [Data Flow
+Operations]({{site.userguide_express_devel}}/data-flow-ops).
 
-* It takes one input, a string that indicates the URI of the Kiji table to treat as the
-source. When the Express operation is run as a job, it is typical that this value is
+* When the Express operation is run as a job, it is typical that the address of the Kiji table is
 provided on the command line; in that case, the call to `KijiInput` would use an instance
-of the Scala Args class to collect the command-line parameters:
+of the Scalding Args class to collect the command-line parameters:
 
         KijiInput(args("users-table"))
-        .read
 
     The command line would include an option `--users-table` where the URI of the Kiji
     table would follow that option, often employing an environment variable (in this case,
@@ -183,17 +183,11 @@ of the Scala Args class to collect the command-line parameters:
 
         express job <jarfile> <class> --users-table ${KIJI}/users
 
-* It produces a data stream that includes each row in the Kiji table as a tuple; each
-column (and map-type column family) appears as an entry in the tuple. Because the source
-is a Kiji table, we know that the first entry in the tuple is the entity ID. We also know
-that each entry in the tuple potentially includes more than one timestamped version.
-
 ### Mapping Data
 
-With data streaming in the processing pipeline, the KijiExpress operation can begin to
-manipulate the data. The most common operation to apply to data is to restructure the
-arrangement of the data using a map operation. Scala provides more than one map-type operation;
-we'll go through the four most common here:
+With data streaming in the processing pipeline, the KijiExpress operation can begin to manipulate
+the data. The most common operation to apply to data is to transform the data using a map operation.
+Scalding provides more than one map-type operation; we'll go through the four most common here:
 
 * [Map](#map)
 * [FlatMap](#flatmap)
@@ -319,7 +313,30 @@ The `flatMap` operation performs the map to generate a list of new values to fil
 additional fields, then flattens that list into individual tuples. For each tuple of input,
 the `flatMap` generates a tuple for each value produced by the mapping function. Each output
 tuple includes the entire input tuple plus the additional field value.
-Here are some examples of `flatMap` functions:
+
+A common usage of this is a Kiji table that stores rows of users, and has a column "purchases" that
+contains all purchases made by that user.  A pipe with the fields `'user` and `'purchases`, where
+the tuples look like:
+
+            user:    purchases:
+    tuple1  Clancy   List(ham, ham)
+    tuple2  Ophie    List(broccoli, carrots, ham)
+     ...
+
+can be transformed into a pipe with the fields `'user` and `'purchase`, where the tuples look like:
+
+            user:    purchase:
+    tuple1  Clancy   ham
+    tuple2  Clancy   ham
+    tuple3  Ophie    broccoli
+    tuple4  Ophie    carrots
+    tuple5  Ophie    ham
+     ...
+
+with this statement:
+
+    .flatMap('purchases -> 'purchase) { purchases: List[String] => purchases }
+
 
 ##### Document to Words
 

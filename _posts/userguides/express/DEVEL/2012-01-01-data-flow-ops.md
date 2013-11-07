@@ -21,12 +21,39 @@ You go through the following steps to create a working KijiExpress job:
 
 [Scalding Sources](https://github.com/twitter/scalding/wiki/Scalding-Sources)
 
-Syntax for KijiInput/KijiOutput:
-* basics: how they are specified
-* writing to map-type column families with a qualifier from a field in the tuple
-* specifying filters columns on KijiInputs
-* Syntax for timestamp field and entity id field when writing. Special entity id field when
-reading.
+#### KijiInput
+
+KijiInput takes two parameters.  The first is a string that indicates the URI of the Kiji table to
+treat as the source. The second is a Map that specifies which fields will contain the data from
+which column in the table.  Unlike TextLine, which we saw always puts the text of the line in
+the `'line` field, KijiInput will populate the fields specified with the data from the column that
+maps to it.
+
+It produces a data stream that includes each row in the Kiji table as a tuple; each column (and
+map-type column family) appears as an entry in the tuple, under the field name specified in the
+mapping provided as the second parameter.
+
+Here's an example of specifying a basic KijiInput:
+
+        KijiInput(
+            "kiji://localhost:2181/myInstance/myTable",
+            Map("info:username" -> 'name, "info:joinDate" -> 'joinDate))
+
+This example reads the data from the "info:username" column of the Kiji table into the field
+`'name`, and the data from the "info:joinData" column of the Kiji table into the field `'joinDate`.
+
+
+TBW: type of data in the tuple (`Stream[Cell]`)
+TBW: paging
+TBW: special entityId field
+TBW: column filters
+
+#### KijiOutput
+
+TBW: Basics
+TBW: Example
+TBW: writing to map-type column families with a qualifier from a field in the tuple
+TBW: Syntax for timestamp field and entity id field when writing.
 
 ### Using Avro Types
 ?TBW?
