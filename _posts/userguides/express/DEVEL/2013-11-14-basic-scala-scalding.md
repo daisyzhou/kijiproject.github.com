@@ -1,13 +1,12 @@
 ---
 layout: post
-title: Writing Basic KijiExpress Jobs
+title: Scala and Scalding Overview
 categories: [userguides, express, devel]
 tags : [express-ug]
 version: devel
 order : 4
-description: Writing Basic KijiExpress Jobs.
+description: Scala and Scalding Overview.
 ---
-##DRAFT##
 
 This section walks through KijiExpress examples with the assumption that the reader is not
 familiar with Scala. If you are already comfortable with the condensed syntax of Scala and
@@ -35,7 +34,7 @@ A semi-colon in the middle of a line delimits two statements on a single line.
 Scala statements can span lines; a newline doesn’t end a statement after a curly brace,
 as in a class definition:
 
-    def getMostPopularSong(songs: KijiSlice[AvroRecord]): String = {
+    def getMostPopularSong(songs: Seq[FlowCell[String]]): String = {
         val songRecord = songs.getFirstValue
         ...
         return mostPopularSong("song_id").asString
@@ -53,7 +52,7 @@ arguments to a trait. Because everything is an object in Scala, you’ll see typ
 sort of places. For example, there are two places in this example where types are set
 explicitly:
 
-    def getMostPopularSong(songs: KijiSlice[AvroRecord]): String = {
+    def getMostPopularSong(songs: Seq[FlowCell[String]]): String = {
         val songRecord = songs.getFirstValue
         ...
         return mostPopularSong("song_id").asString
@@ -61,17 +60,18 @@ explicitly:
 
 **Parameter type:**
 
-`getMostPopularSong(songs: KijiSlice[AvroRecord])`
+`getMostPopularSong(songs: Seq[FlowCell[String]])`
 
-The function `getMostPopularSong` takes songs as its input; the syntax `songs: KijiSlice[…]`
-tells you that the next identifier is the type that this function expects the input songs
-to be in. In this case, songs is of type `KijiSlice`, which is a KijiExpress trait that
-allows you to easily handle data from a cell in a Kiji table. More on this later in
-[Managing Data](#managing_data).
+The function `getMostPopularSong` takes songs as its input; the syntax `songs:
+Seq[FlowCell[String]]` tells you that the next identifier is the type that this
+function expects the input songs to be in. In this case, songs is of type
+`Seq[FlowCell[String]]`, which is a KijiExpress trait that allows you to easily
+handle data from a cell in a Kiji table. More on this later in [Managing
+Data](#managing_data).
 
 **Function type:**
 
-`def getMostPopularSong(songs: KijiSlice[AvroRecord]): String`
+`def getMostPopularSong(songs: Seq[FlowCell[String]]): String`
 
 The return type for the function is also explicitly typed: `getMostPopularSong(…): String`
 tells you that the return value of this function is of String type.
@@ -83,7 +83,7 @@ or not the function has a return value.
 
 If the function has a return value, the syntax includes “=”:
 
-    def getMostPopularSong(songs: KijiSlice[AvroRecord]): String = {
+    def getMostPopularSong(songs: Seq[FlowCell[String]]): String = {
         ...
     }
 
@@ -108,14 +108,29 @@ transformation between the map source and target fields:
     .map('entityId -> 'songId) { (eId: EntityId) => eId(0) }
     Need explanation of function literal.
 
+### Tuples and Pipelines
+
+KijiExpress views a data set as a collection of named tuples. A named tuple can be thought
+of as an ordered list where each element has a name. When using KijiExpress with data
+stored in a Kiji table, a row from the Kiji table corresponds to a single tuple, where
+columns from the Kiji table correspond to named elements in the tuple.
+
+Data processing occurs in pipelines, where the input and output from each pipeline is a
+stream of named tuples represented by a data object. Each operation you described in your
+KijiExpress program, or job, defines the input, output, and processing for a pipe.
+
+Data enters a pipe from a source. Sources can be such places as Kiji tables, text files, or Sequence
+files. At the end of the pipe, tuples are written to a sink. Again, sinks can be Kiji tables, text
+files, or SequenceFiles.
+
 #### Operating on Pipe Data
 
 When data is read in KijiExpress it is implicitly converted into a KijiPipe, which is an
-extension of a Scalding RichPipe object. The data is in the form of a stream of tuples,
-where one tuple includes a row of the input. The data in each tuple is organized in fields:
-if the data came from a Kiji table, each tuple contains a field for each column or map family
-in the table, including the entity ID. If the data comes from the output of a TextLine source,
-each tuple contains a single field named “line”.
+extension of Scalding RichPipe. The data is in the form of a stream of tuples, where one tuple
+includes a row of the input. The data in each tuple is organized in fields: if the data came from a
+Kiji table, each tuple contains a field for each column or map family in the table, including the
+entity ID. If the data comes from the output of a TextLine source, each tuple contains a single
+field named “line”.
 
 One of the syntax constructions you will see frequently in Express samples are invocations
 of functions applied to the “pipe” object that is the result of reading data from a source.
@@ -136,6 +151,8 @@ performs
 
     functionC(functionB(functionA(Pipe)))
 
+where functionA is the first to executed, then functionB, then functionC.
+
 ### Reading Data
 
 Most Express operations involve reading data from some data source, whether it's a KijiTable
@@ -145,7 +162,7 @@ for data pipeline operations.
 A basic statement to read from a text file would use the Scalding type TextLine to handle
 the I/O operations:
 
-    TextLine("path/to/song-plays.json")
+    TextLine("import-customers-by-state.txt")
         .read
 
 Line-by-line, this statement does the following:
@@ -157,9 +174,7 @@ the input file; `num` includes the line number from the file.
 
 * `.read` is an anonymous function operating on the output of `TextLine`; it is on a
 separate line by convention. The read method explicitly indicates that the source should
-be extracted and streamed into the data pipeline. Generally, you won't explicitly call out
-the read operation, as it is included as part of the next operation such as a map or
-project operation.
+be extracted and streamed into the data pipeline.
 
     For data in a Kiji table, Express includes the source KijiInput that understands the
     special characteristics of a Kiji table, such as entity IDs.
@@ -195,10 +210,10 @@ manipulate the data. The most common operation to apply to data is to restructur
 arrangement of the data using a map operation. Scala provides more than one map-type operation;
 we'll go through the four most common here:
 
-* [Map](#map)
-* [FlatMap](#flatmap)
-* [MapTo](#mapto)
-* [FlatMapTo](#flatmapto)
+* [map](#map)
+* [flatMap](#flatmap)
+* [mapTo](#mapto)
+* [flatMapTo](#flatmapto)
 
 #### Map
 
@@ -272,43 +287,36 @@ ready to be written to a Kiji table.
 
 A map statement can include the transformation in line instead of specifying a function
 defined elsewhere. This example takes a column from a Kiji table and returns only the most
-recent value of the column. ?link to something about how kiji tables are structured.
-It uses the fact that the content of the column can be manipulated as a `KijiSlice`:
-Kiji tables can hold many timestamped values (versions) for each column; accessing this
-data as a `KijiSlice` allows you to pull a specific version for the column by index or
-timestamp.
+recent value of the column.
+It uses the fact that the content of the column can be manipulated as a `Seq[FlowCell[...]]`:
+Kiji tables can hold many timestamped values (versions) for each column; data from Kiji tables is
+returned as `Seq[FlowCell[...]]` which allows, among other things, pulling a
+specific version for the column by index or timestamp.
 
     .map('trackPlays -> 'lastTrackPlayed) {
-        slice: KijiSlice[String] => slice.getFirstValue()}
+        slice: Seq[FlowCell[String]] => slice.head.datum}
     .mapTo(('entityId, 'name, 'desc) -> ('id, 'name, 'desc)) {
-        cols: (EntityId, KijiSlice[String], KijiSlice[String]) =>
+        cols: (EntityId, Seq[FlowCell[String]], Seq[FlowCell[String]]) =>
           val (entityId, name, desc) = cols
-          (entityId(0), name.getFirstValue(), desc.getFirstValue())
+          (entityId(0), name.head.datum, desc.head.datum)
 
 This example has the same basic structure as previous examples:
 
 * Data from one field is mapped to another single field.
-* The mapping function includes the data type of the source field, but this time, the
-source is not called out by its name `trackPlays` but instead the statement takes advantage
-of the fact that the source field is a Kiji table column and that it is the only source
-field identified. The type description defines a new object "slice" of type `KijiSlice`
-where the underlying content of the slice is of type String.
+* The mapping function includes the data type of the source field.  Note the name of the parameter
+  to the first function (slice) does not have to be the same as the name of the field the data comes
+  from ('trackPlays).
 
-?What would happen if there were more than one source fields?
-?Anything else assumed or hidden here?
-
-* The mapping function transforms this input object "slice" by applying the `KijiSlice`
-method `getFirstValue()`. `KijiSlice` provides many similar methods that make operations
-across all of the versions of the column value very easy; some of them are `avg`,
-`getLastValue`, `groupBy`, `max`, `min`, `orderBy`, `size`, `sum`. The whole list is here:
-?link to KijiSlice API, or more in depth discussion of KijiSlice.
+* The mapping function transforms this input object "slice" by applying the Seq method `head`, which
+  gives the first FlowCell in the Seq, then applying the FlowCell method `datum` which gives the
+  datum in that FlowCell.
 
 * It augments the input stream so that the output stream includes the entire content of
 the input stream (`trackPlays`) augmented with the new field (`lastTrackPlayed`).
 
-#### FlatMap
+#### flatMap
 
-FlatMap operations in Scala use the same syntax as map operations:
+flatMap operations in Scala use the same syntax as map operations:
 
     .flatMap('existing_field -> 'additional_field) { mapping_function }
 
@@ -350,7 +358,7 @@ the output is a tuple for each word in `doc_content`. Each output tuple contains
 from the input tuple with an additional field `word` with one of the words from `doc_content`.
 ?Is the list ordered in any way?
 
-##### FlatMap With Multiple Fields in the Output
+##### flatMap With Multiple Fields in the Output
 
 The Document to Words example is simple in that it pivots on a single field value; what
 happens when there's more payload in the output?
@@ -384,28 +392,26 @@ The mapping function bigram turns playlist into a collection of tuples:
 The output of the `flatMap` is a tuple for each value of the collection of first song and
 its ID; the tuple includes the original playlist values: ?how do the song IDs come back?
 
-![FlatMap][express_flatmap]
+![flatMap][express_flatmap]
 
 [express_flatmap]: ../../../../assets/images/express_flatmap.png
 
 The details of how to define the mapping function to generate bigrams is described in
 ?tutorial_link?
 
-#### MapTo
+#### mapTo
 
-MapTo operations perform a map operation followed by a "project" operation; using a
+mapTo operations perform a map operation followed by a "project" operation; using a
 `mapTo` function is more efficient that performing the two operations separately. The
 project operation drops the original input fields and retains only the fields indicated
 in the map operation target field list.
 
     .mapTo((existing_field_list) -> (output_field_list)) { mapping_function }
 
-?include the same examples as Map and show the difference with MapTo?
 
-#### FlatMapTo
+#### flatMapTo
 
-?same content structure as MapTo: repeat FlatMap examples?
-? from PlayCount: does my sample work for putting the mapping function inline?
+Similarly to mapTo, flatMapTo performs a flatMap operation followed by a project operation.
 
     .flatMapTo('playlist -> 'song) {
         slice : KijiSlice[String] => slice.cells.map {cell => cell.datum} }

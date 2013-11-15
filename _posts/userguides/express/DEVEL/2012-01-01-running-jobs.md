@@ -4,7 +4,7 @@ title: Running KijiExpress Jobs
 categories: [userguides, express, devel]
 tags : [express-ug]
 version: devel
-order : 6
+order : 8
 description: Running KijiExpress Jobs.
 ---
 ##DRAFT##
@@ -131,6 +131,11 @@ where you can put breaks. (Long lines work also.)
 
 * More than one blank line in a row in the Scala input (from `:paste` or `:load`) will fail.
 
-* You can also run KijiSchema commands from the KijiExpress shell by using the `:schema-shell` command.
+* You can also run KijiSchema commands from the KijiExpress shell by using the `:schema-shell`
+  command.  From inside the shell, type
 
-See [KijiExpress Shell Command Reference](../shell-commands).
+        :help
+
+   for a list of meta-commands.  These are the same as the regular scala interpreter, with the
+addition of the command `:schema-shell` which will drop you into an instance of the KijiSchema
+shell.
